@@ -4,9 +4,10 @@ name: Fork auto-sync upstream + sideload build
 # - Scheduled / manual: rebase custom/local-toggles onto upstream/main.
 # - If rebase is clean: force-push (lease) the branch and build a signed x64 MSIX.
 # - If rebase conflicts: job fails WITHOUT pushing; resolve locally and re-run.
-# Required secret: BETA_SIGNING_CERT_PFX_BASE64 (same self-signed PFX used for
-# local sideloads, CN=51FBDAF3-E212-4149-89A2-A2636B3BC911 — MUST stay the same
-# cert or installed app cannot upgrade in place).
+# Required secrets: BETA_SIGNING_CERT_PFX_BASE64 (base64 of the sideload PFX) and
+# BETA_SIGNING_CERT_PASSWORD (its password). The PFX must be the SAME self-signed
+# cert used for local sideloads (CN=51FBDAF3-E212-4149-89A2-A2636B3BC911) — MUST stay
+# the same cert or installed app cannot upgrade in place.
 # NOTE: `schedule` only fires on the fork's DEFAULT branch. Either set the fork
 # default branch to custom/local-toggles, or copy this file onto main.
 
@@ -94,9 +95,13 @@ jobs:
         shell: pwsh
         env:
           BETA_SIGNING_CERT_PFX_BASE64: ${{ secrets.BETA_SIGNING_CERT_PFX_BASE64 }}
+          BETA_SIGNING_CERT_PASSWORD: ${{ secrets.BETA_SIGNING_CERT_PASSWORD }}
         run: |
           if ([string]::IsNullOrWhiteSpace($env:BETA_SIGNING_CERT_PFX_BASE64)) {
             throw "Missing required secret: BETA_SIGNING_CERT_PFX_BASE64. Export your sideload PFX (CN=51FBDAF3-...) and add it as a repo/Actions secret."
+          }
+          if ([string]::IsNullOrWhiteSpace($env:BETA_SIGNING_CERT_PASSWORD)) {
+            throw "Missing required secret: BETA_SIGNING_CERT_PASSWORD."
           }
 
       - name: Setup .NET SDK
@@ -125,10 +130,11 @@ jobs:
         shell: pwsh
         env:
           BETA_SIGNING_CERT_PFX_BASE64: ${{ secrets.BETA_SIGNING_CERT_PFX_BASE64 }}
+          BETA_SIGNING_CERT_PASSWORD: ${{ secrets.BETA_SIGNING_CERT_PASSWORD }}
         run: |
           New-Item -ItemType Directory -Path (Split-Path -Parent $env:CERTIFICATE_PFX_PATH) -Force | Out-Null
           [IO.File]::WriteAllBytes($env:CERTIFICATE_PFX_PATH, [Convert]::FromBase64String($env:BETA_SIGNING_CERT_PFX_BASE64))
-          $certificate = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2($env:CERTIFICATE_PFX_PATH, $null, [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable)
+          $certificate = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2($env:CERTIFICATE_PFX_PATH, $env:BETA_SIGNING_CERT_PASSWORD, [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable)
           New-Item -ItemType Directory -Path (Split-Path -Parent $env:CERTIFICATE_CER_PATH) -Force | Out-Null
           [IO.File]::WriteAllBytes($env:CERTIFICATE_CER_PATH, $certificate.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert))
 
@@ -144,6 +150,8 @@ jobs:
       - name: Build signed x64 MSIX
         if: github.event.inputs.dry_run != 'true'
         shell: pwsh
+        env:
+          BETA_SIGNING_CERT_PASSWORD: ${{ secrets.BETA_SIGNING_CERT_PASSWORD }}
         run: |
           New-Item -ItemType Directory -Path $env:PACKAGE_OUTPUT_DIR -Force | Out-Null
           dotnet build $env:PROJECT_PATH `
@@ -159,7 +167,7 @@ jobs:
             /p:AppxPackageDir="$env:PACKAGE_OUTPUT_DIR\\" `
             /p:AppxPackageVersion=${{ steps.metadata.outputs.package_version }} `
             /p:PackageCertificateKeyFile="$env:CERTIFICATE_PFX_PATH" `
-            /p:PackageCertificatePassword= `
+            /p:PackageCertificatePassword="$env:BETA_SIGNING_CERT_PASSWORD" `
             /p:PackageCertificateThumbprint= `
             /p:AppxPackageSigningEnabled=true
 
