@@ -46,6 +46,9 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
         UndoSendingDraftsIntervalInSeconds = PreferencesService.UndoSendingDraftsIntervalInSeconds;
         UndoDeletingMailsIntervalInSeconds = PreferencesService.UndoDeletingMailsIntervalInSeconds;
         SummarySavePath = PreferencesService.AiSummarySavePath;
+        CustomAiBaseUrl = PreferencesService.CustomAiBaseUrl;
+        CustomAiApiKey = PreferencesService.CustomAiApiKey;
+        CustomAiModel = PreferencesService.CustomAiModel;
     }
 
     public IPreferencesService PreferencesService { get; }
@@ -76,6 +79,15 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
 
     [ObservableProperty]
     public partial bool HasInvalidSummarySavePath { get; set; }
+
+    [ObservableProperty]
+    public partial string CustomAiBaseUrl { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string CustomAiApiKey { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string CustomAiModel { get; set; } = string.Empty;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsStartupBehaviorDisabled))]
@@ -191,6 +203,30 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
         RefreshSummarySavePathState();
     }
 
+    partial void OnCustomAiBaseUrlChanged(string value)
+    {
+        if (!_isAiPreferencesInitialized)
+            return;
+
+        PreferencesService.CustomAiBaseUrl = value ?? string.Empty;
+    }
+
+    partial void OnCustomAiApiKeyChanged(string value)
+    {
+        if (!_isAiPreferencesInitialized)
+            return;
+
+        PreferencesService.CustomAiApiKey = value ?? string.Empty;
+    }
+
+    partial void OnCustomAiModelChanged(string value)
+    {
+        if (!_isAiPreferencesInitialized)
+            return;
+
+        PreferencesService.CustomAiModel = value ?? string.Empty;
+    }
+
     [RelayCommand]
     private async Task ToggleStartupBehaviorAsync()
     {
@@ -268,9 +304,12 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
                                                  ?? FindAiLanguageOption("en-US")
                                                  ?? (AvailableAiLanguages.Count > 0 ? AvailableAiLanguages[0] : null);
             SelectedSummarizeLanguage = FindAiLanguageOption(PreferencesService.AiSummarizeLanguageCode)
-                                        ?? FindAiLanguageOption("en-US")
-                                        ?? (AvailableAiLanguages.Count > 0 ? AvailableAiLanguages[0] : null);
+                                         ?? FindAiLanguageOption("en-US")
+                                         ?? (AvailableAiLanguages.Count > 0 ? AvailableAiLanguages[0] : null);
             SummarySavePath = PreferencesService.AiSummarySavePath;
+            CustomAiBaseUrl = PreferencesService.CustomAiBaseUrl;
+            CustomAiApiKey = PreferencesService.CustomAiApiKey;
+            CustomAiModel = PreferencesService.CustomAiModel;
             RefreshSummarySavePathState();
             _isAiPreferencesInitialized = true;
 

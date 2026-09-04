@@ -19,6 +19,7 @@ namespace Wino.Services;
 public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccountProfileService
 {
     private readonly IWinoAccountApiClient _apiClient;
+    private readonly ICustomAiService _customAiService;
     private readonly IStoreManagementService _storeManagementService;
     private readonly SemaphoreSlim _billingCallbackLock = new(1, 1);
     private readonly SemaphoreSlim _tokenRefreshLock = new(1, 1);
@@ -26,9 +27,11 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
 
     public WinoAccountProfileService(IDatabaseService databaseService,
                                      IWinoAccountApiClient apiClient,
+                                     ICustomAiService customAiService,
                                      IStoreManagementService storeManagementService) : base(databaseService)
     {
         _apiClient = apiClient;
+        _customAiService = customAiService;
         _storeManagementService = storeManagementService;
     }
 
@@ -136,7 +139,10 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
 
     public async Task<WinoAccount?> GetActiveAccountAsync()
     {
-        var account = await Connection.Table<WinoAccount>().FirstOrDefaultAsync().ConfigureAwait(false);
+        var account = await Connection.Table<WinoAccount>()
+            .OrderByDescending(account => account.LastAuthenticatedUtc)
+            .FirstOrDefaultAsync()
+            .ConfigureAwait(false);
         return account;
     }
 
@@ -198,6 +204,11 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
 
     public async Task<ApiEnvelope<AiStatusResultDto>> GetAiStatusAsync(CancellationToken cancellationToken = default)
     {
+        if (_customAiService.IsConfigured)
+        {
+            return ApiEnvelope<AiStatusResultDto>.Failure("CustomAiStatusUnavailable");
+        }
+
         var account = await GetAuthenticatedAccountAsync(cancellationToken).ConfigureAwait(false);
         if (account == null)
         {
@@ -215,13 +226,19 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
     }
 
     public async Task<ApiEnvelope<AiTextResultDto>> SummarizeAsync(string html, string targetLanguage, CancellationToken cancellationToken = default)
-        => await ExecuteAiOperationAsync(account => _apiClient.SummarizeAsync(html, targetLanguage, cancellationToken), "summarize", cancellationToken).ConfigureAwait(false);
+        => _customAiService.IsConfigured
+            ? await _customAiService.SummarizeAsync(html, targetLanguage, cancellationToken).ConfigureAwait(false)
+            : await ExecuteAiOperationAsync(account => _apiClient.SummarizeAsync(html, targetLanguage, cancellationToken), "summarize", cancellationToken).ConfigureAwait(false);
 
     public async Task<ApiEnvelope<AiTextResultDto>> TranslateAsync(string html, string targetLanguage, CancellationToken cancellationToken = default)
-        => await ExecuteAiOperationAsync(account => _apiClient.TranslateAsync(html, targetLanguage, cancellationToken), "translate", cancellationToken).ConfigureAwait(false);
+        => _customAiService.IsConfigured
+            ? await _customAiService.TranslateAsync(html, targetLanguage, cancellationToken).ConfigureAwait(false)
+            : await ExecuteAiOperationAsync(account => _apiClient.TranslateAsync(html, targetLanguage, cancellationToken), "translate", cancellationToken).ConfigureAwait(false);
 
     public async Task<ApiEnvelope<AiTextResultDto>> RewriteAsync(string html, string mode, CancellationToken cancellationToken = default)
-        => await ExecuteAiOperationAsync(account => _apiClient.RewriteAsync(html, mode, cancellationToken), "rewrite", cancellationToken).ConfigureAwait(false);
+        => _customAiService.IsConfigured
+            ? await _customAiService.RewriteAsync(html, mode, cancellationToken).ConfigureAwait(false)
+            : await ExecuteAiOperationAsync(account => _apiClient.RewriteAsync(html, mode, cancellationToken), "rewrite", cancellationToken).ConfigureAwait(false);
 
     public async Task<ApiEnvelope<JsonElement>> SyncStoreEntitlementsAsync(CancellationToken cancellationToken = default)
     {
@@ -410,7 +427,6 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
 
     private async Task PersistAccountAsync(WinoAccount account)
     {
-        await Connection.DeleteAllAsync<WinoAccount>().ConfigureAwait(false);
         await Connection.InsertOrReplaceAsync(account, typeof(WinoAccount)).ConfigureAwait(false);
     }
 

@@ -151,6 +151,13 @@
                 </controls:SettingsCard.HeaderIcon>
             </controls:SettingsCard>
 
+            <controls:SettingsCard Description="{x:Bind domain:Translator.SettingsAppPreferences_UnlimitedAccounts_Description}" Header="{x:Bind domain:Translator.SettingsAppPreferences_UnlimitedAccounts_Title}">
+                <ToggleSwitch IsOn="{x:Bind ViewModel.PreferencesService.AllowUnlimitedAccounts, Mode=TwoWay}" />
+                <controls:SettingsCard.HeaderIcon>
+                    <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE77B;" />
+                </controls:SettingsCard.HeaderIcon>
+            </controls:SettingsCard>
+
             <controls:SettingsExpander
                 AutomationProperties.AutomationId="AppPreferencesPageSettingsExpander"
                 Description="{x:Bind domain:Translator.SettingsAppPreferences_AiActions_Description}"
@@ -160,6 +167,13 @@
                     <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE734;" />
                 </controls:SettingsExpander.HeaderIcon>
                 <controls:SettingsExpander.Items>
+                    <controls:SettingsCard
+                        AutomationProperties.AutomationId="AppPreferencesPageCustomAiEnabledCard"
+                        Description="{x:Bind domain:Translator.SettingsAppPreferences_CustomAiEnabled_Description}"
+                        Header="{x:Bind domain:Translator.SettingsAppPreferences_CustomAiEnabled_Title}">
+                        <ToggleSwitch AutomationProperties.AutomationId="AppPreferencesCustomAiEnabledToggleSwitch" IsOn="{x:Bind ViewModel.PreferencesService.IsCustomAiEnabled, Mode=TwoWay}" />
+                    </controls:SettingsCard>
+
                     <controls:SettingsCard
                         AutomationProperties.AutomationId="AppPreferencesPageSettingsCard8"
                         Description="{x:Bind domain:Translator.SettingsAppPreferences_AiDefaultTranslationLanguage_Description}"
@@ -190,6 +204,27 @@
                                 </DataTemplate>
                             </ComboBox.ItemTemplate>
                         </ComboBox>
+                    </controls:SettingsCard>
+
+                    <controls:SettingsCard
+                        HorizontalContentAlignment="Stretch"
+                        Description="{x:Bind domain:Translator.SettingsAppPreferences_CustomAiBaseUrl_Description}"
+                        Header="{x:Bind domain:Translator.SettingsAppPreferences_CustomAiBaseUrl_Title}">
+                        <TextBox PlaceholderText="{x:Bind domain:Translator.SettingsAppPreferences_CustomAiBaseUrl_Placeholder}" Text="{x:Bind ViewModel.CustomAiBaseUrl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                    </controls:SettingsCard>
+
+                    <controls:SettingsCard
+                        HorizontalContentAlignment="Stretch"
+                        Description="{x:Bind domain:Translator.SettingsAppPreferences_CustomAiApiKey_Description}"
+                        Header="{x:Bind domain:Translator.SettingsAppPreferences_CustomAiApiKey_Title}">
+                        <PasswordBox Password="{x:Bind ViewModel.CustomAiApiKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                    </controls:SettingsCard>
+
+                    <controls:SettingsCard
+                        HorizontalContentAlignment="Stretch"
+                        Description="{x:Bind domain:Translator.SettingsAppPreferences_CustomAiModel_Description}"
+                        Header="{x:Bind domain:Translator.SettingsAppPreferences_CustomAiModel_Title}">
+                        <TextBox PlaceholderText="{x:Bind domain:Translator.SettingsAppPreferences_CustomAiModel_Placeholder}" Text="{x:Bind ViewModel.CustomAiModel, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                     </controls:SettingsCard>
 
                     <controls:SettingsCard

@@ -199,6 +199,15 @@ public sealed partial class AiActionsPanel : UserControl, IDisposable
 
         try
         {
+            if (_preferencesService.IsCustomAiEnabled && _preferencesService.CustomAiBaseUrl?.Trim().Length > 0)
+            {
+                UpdateUsageSummary("Custom AI API configured.");
+                await RefreshCachedSummaryStateAsync().ConfigureAwait(true);
+                ApplySelectedAction(SelectDefaultAction());
+                UpdatePanelState(showReady: true);
+                return;
+            }
+
             var account = await _profileService.GetAuthenticatedAccountAsync().ConfigureAwait(true);
             if (account == null)
             {

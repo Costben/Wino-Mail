@@ -113,6 +113,31 @@ public interface IPreferencesService : INotifyPropertyChanged
     string AiSummarySavePath { get; set; }
 
     /// <summary>
+    /// OpenAI-compatible base URL used for custom AI actions.
+    /// </summary>
+    string CustomAiBaseUrl { get; set; }
+
+    /// <summary>
+    /// API key used for custom AI actions.
+    /// </summary>
+    string CustomAiApiKey { get; set; }
+
+    /// <summary>
+    /// Model name used for custom AI actions.
+    /// </summary>
+    string CustomAiModel { get; set; }
+
+    /// <summary>
+    /// Setting: Whether custom OpenAI-compatible AI endpoint is used instead of Wino AI. Default true.
+    /// </summary>
+    bool IsCustomAiEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: Whether unlimited mail accounts are allowed without store purchase. Default true.
+    /// </summary>
+    bool AllowUnlimitedAccounts { get; set; }
+
+    /// <summary>
     /// Serializes the current syncable preferences snapshot.
     /// </summary>
     string ExportPreferences();

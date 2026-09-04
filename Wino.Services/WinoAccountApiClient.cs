@@ -504,7 +504,7 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 
     private async Task<string?> GetAccessTokenAsync()
     {
-        var account = await _databaseService.Connection.Table<WinoAccount>().FirstOrDefaultAsync().ConfigureAwait(false);
+        var account = await GetActiveAccountAsync().ConfigureAwait(false);
         return string.IsNullOrWhiteSpace(account?.AccessToken) ? null : account.AccessToken;
     }
 
@@ -514,7 +514,7 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 
         try
         {
-            var account = await _databaseService.Connection.Table<WinoAccount>().FirstOrDefaultAsync().ConfigureAwait(false);
+            var account = await GetActiveAccountAsync().ConfigureAwait(false);
             if (account == null || string.IsNullOrWhiteSpace(account.RefreshToken))
             {
                 return false;
@@ -533,7 +533,6 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 
             var refreshedAccount = MapAccount(refreshResult.Result, account.LastAuthenticatedUtc);
 
-            await _databaseService.Connection.DeleteAllAsync<WinoAccount>().ConfigureAwait(false);
             await _databaseService.Connection.InsertOrReplaceAsync(refreshedAccount, typeof(WinoAccount)).ConfigureAwait(false);
 
             return true;
@@ -543,6 +542,12 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
             _tokenRefreshLock.Release();
         }
     }
+
+    private async Task<WinoAccount?> GetActiveAccountAsync()
+        => await _databaseService.Connection.Table<WinoAccount>()
+            .OrderByDescending(account => account.LastAuthenticatedUtc)
+            .FirstOrDefaultAsync()
+            .ConfigureAwait(false);
 
     private static WinoAccount MapAccount(AuthResultDto result, DateTime lastAuthenticatedUtc)
         => new()

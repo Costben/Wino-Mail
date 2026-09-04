@@ -102,7 +102,7 @@ public abstract partial class AccountManagementPageViewModelBase : CoreBaseViewM
         await ExecuteUIThread(() =>
         {
             HasUnlimitedAccountProduct = hasUnlimitedAccountProduct;
-            IsAccountCreationBlocked = !hasUnlimitedAccountProduct && Accounts.Count >= FREE_ACCOUNT_COUNT;
+            IsAccountCreationBlocked = !PreferencesService.AllowUnlimitedAccounts && !hasUnlimitedAccountProduct && Accounts.Count >= FREE_ACCOUNT_COUNT;
         });
     }
 

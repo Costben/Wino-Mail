@@ -19,6 +19,7 @@ namespace Wino.Core.Tests.Services;
 public class WinoAccountProfileServiceTests : IAsyncLifetime
 {
     private readonly Mock<IWinoAccountApiClient> _apiClient = new();
+    private readonly Mock<ICustomAiService> _customAiService = new();
     private readonly Mock<IStoreManagementService> _storeManagementService = new();
     private InMemoryDatabaseService _databaseService = null!;
     private WinoAccountProfileService _service = null!;
@@ -27,7 +28,8 @@ public class WinoAccountProfileServiceTests : IAsyncLifetime
     {
         _databaseService = new InMemoryDatabaseService();
         await _databaseService.InitializeAsync();
-        _service = new WinoAccountProfileService(_databaseService, _apiClient.Object, _storeManagementService.Object);
+        _customAiService.Setup(x => x.IsConfigured).Returns(false);
+        _service = new WinoAccountProfileService(_databaseService, _apiClient.Object, _customAiService.Object, _storeManagementService.Object);
     }
 
     public async Task DisposeAsync()
@@ -57,22 +59,30 @@ public class WinoAccountProfileServiceTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task LoginAsync_ShouldReplaceExistingActiveAccount()
+    public async Task LoginAsync_ShouldKeepExistingAccountsAndUseLatestAsActive()
     {
+        var firstAuthResult = CreateAuthResult("first@example.com", DateTimeOffset.UtcNow.AddMinutes(30), "first-access-token", "first-refresh-token");
+        var secondAuthResult = CreateAuthResult("second@example.com", DateTimeOffset.UtcNow.AddMinutes(30), "second-access-token", "second-refresh-token");
+
         _apiClient
             .Setup(x => x.LoginAsync("first@example.com", "pw", default))
-            .ReturnsAsync(WinoAccountApiResult<AuthResultDto>.Success(CreateAuthResult("first@example.com")));
+            .ReturnsAsync(WinoAccountApiResult<AuthResultDto>.Success(firstAuthResult));
 
         _apiClient
             .Setup(x => x.LoginAsync("second@example.com", "pw", default))
-            .ReturnsAsync(WinoAccountApiResult<AuthResultDto>.Success(CreateAuthResult("second@example.com")));
+            .ReturnsAsync(WinoAccountApiResult<AuthResultDto>.Success(secondAuthResult));
 
         await _service.LoginAsync("first@example.com", "pw");
         await _service.LoginAsync("second@example.com", "pw");
 
         var persisted = await _databaseService.Connection.Table<WinoAccount>().ToListAsync();
-        persisted.Should().ContainSingle();
-        persisted[0].Email.Should().Be("second@example.com");
+        persisted.Should().HaveCount(2);
+        persisted.Should().Contain(account => account.Email == "first@example.com");
+        persisted.Should().Contain(account => account.Email == "second@example.com");
+
+        var activeAccount = await _service.GetActiveAccountAsync();
+        activeAccount.Should().NotBeNull();
+        activeAccount!.Email.Should().Be("second@example.com");
     }
 
     [Fact]
@@ -252,13 +262,13 @@ public class WinoAccountProfileServiceTests : IAsyncLifetime
         response.Result?.Html.Should().Be("<p>Summary</p>");
     }
 
-    private static AuthResultDto CreateAuthResult(string email)
+    private static AuthResultDto CreateAuthResult(string email, DateTimeOffset? accessTokenExpiresAt = null, string accessToken = "access-token", string refreshToken = "refresh-token")
     {
         return new AuthResultDto(
             new AuthUserDto(Guid.NewGuid(), email, "Active", true, false, false),
-            "access-token",
-            DateTimeOffset.UtcNow.AddMinutes(30),
-            "refresh-token",
+            accessToken,
+            accessTokenExpiresAt ?? DateTimeOffset.UtcNow.AddMinutes(30),
+            refreshToken,
             DateTimeOffset.UtcNow.AddDays(30));
     }
 }

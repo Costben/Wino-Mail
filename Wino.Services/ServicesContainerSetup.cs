@@ -33,6 +33,7 @@ public static class ServicesContainerSetup
         services.AddTransient<ISpecialImapProviderConfigResolver, SpecialImapProviderConfigResolver>();
         services.AddTransient<IKeyboardShortcutService, KeyboardShortcutService>();
         services.AddSingleton<IWinoAccountApiClient, WinoAccountApiClient>();
+        services.AddSingleton<ICustomAiService, CustomAiService>();
         services.AddSingleton<IWinoAccountProfileService, WinoAccountProfileService>();
         services.AddTransient<IWinoAccountDataSyncService, WinoAccountDataSyncService>();
         services.AddSingleton<IContactPictureFileService, ContactPictureFileService>();
