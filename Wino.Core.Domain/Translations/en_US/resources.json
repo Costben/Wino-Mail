@@ -725,6 +725,8 @@
     "Notifications_WinoUpdatedMessage": "Checkout new version {0}",
     "Notifications_WinoUpdatedTitle": "Wino Mail has been updated.",
     "Notifications_StoreUpdateAvailableTitle": "Update available",
+    "Notifications_SideloadUpdateAvailableTitle": "Update available",
+    "Notifications_SideloadUpdateAvailableMessage": "Version {0} is ready in your own release channel. Download and install it now?",
     "Notifications_StoreUpdateAvailableMessage": "A newer version of Wino Mail is ready to install from Microsoft Store.",
     "OnlineSearchFailed_Message": "Failed to perform search\n{0}\n\nListing offline mails.",
     "OnlineSearchTry_Line1": "Can't find what you are looking for?",

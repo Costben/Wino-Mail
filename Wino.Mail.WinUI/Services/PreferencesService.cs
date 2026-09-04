@@ -566,6 +566,18 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
         get => _configurationService.Get(nameof(AllowUnlimitedAccounts), true);
         set => SetPropertyAndSave(nameof(AllowUnlimitedAccounts), value);
     }
+
+    public bool IsSideloadUpdateCheckEnabled
+    {
+        get => _configurationService.Get(nameof(IsSideloadUpdateCheckEnabled), true);
+        set => SetPropertyAndSave(nameof(IsSideloadUpdateCheckEnabled), value);
+    }
+
+    public string SideloadUpdateFeedUrl
+    {
+        get => _configurationService.Get(nameof(SideloadUpdateFeedUrl), "https://api.github.com/repos/Costben/Wino-Mail/releases");
+        set => SetPropertyAndSave(nameof(SideloadUpdateFeedUrl), string.IsNullOrWhiteSpace(value) ? "https://api.github.com/repos/Costben/Wino-Mail/releases" : value.Trim());
+    }
     public CalendarSettings GetCurrentCalendarSettings()
     {
         var workingDays = GetDaysBetween(WorkingDayStart, WorkingDayEnd);

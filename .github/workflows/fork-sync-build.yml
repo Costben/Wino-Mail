@@ -173,3 +173,27 @@ jobs:
             ${{ env.CERTIFICATE_CER_PATH }}
           if-no-files-found: error
           retention-days: 30
+
+      - name: Publish sideload prerelease
+        if: github.event.inputs.dry_run != 'true'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = "sideload-v${{ steps.metadata.outputs.package_version }}-${{ steps.metadata.outputs.short_sha }}"
+          $msix = Get-ChildItem -Path $env:PACKAGE_OUTPUT_DIR -Recurse -Filter *.msix | Select-Object -First 1
+          if (-not $msix) {
+            throw "No .msix file was generated under $env:PACKAGE_OUTPUT_DIR"
+          }
+
+          $existing = gh release view $tag --repo "${{ github.repository }}" --json tagName 2>$null
+          if ($existing) {
+            Write-Output "Release $tag already exists, skipping publish."
+            exit 0
+          }
+
+          gh release create $tag $msix.FullName $env:CERTIFICATE_CER_PATH `
+            --repo "${{ github.repository }}" `
+            --title "Sideload ${{ steps.metadata.outputs.package_version }} (${{ steps.metadata.outputs.short_sha }})" `
+            --notes "Automated sideload build from custom/local-toggles. Same signing cert as previous sideloads, installs as in-place upgrade." `
+            --prerelease

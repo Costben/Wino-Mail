@@ -34,6 +34,7 @@ public static class CoreUWPContainerSetup
         services.AddTransient<IFileService, FileService>();
         services.AddTransient<IStoreRatingService, StoreRatingService>();
         services.AddSingleton<IStoreUpdateService, StoreUpdateService>();
+        services.AddSingleton<ISideloadUpdateService, SideloadUpdateService>();
         services.AddTransient<IKeyPressService, KeyPressService>();
         services.AddTransient<IWebView2RuntimeValidatorService, WebView2RuntimeValidatorService>();
         services.AddTransient<INotificationBuilder, NotificationBuilder>();

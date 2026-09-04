@@ -14,6 +14,7 @@ public sealed class WinoAppShellViewModel : CoreBaseViewModel, IShellViewModel
 {
     private readonly Dictionary<WinoApplicationMode, IShellClient> _shellClients;
     private readonly IStoreUpdateService _storeUpdateService;
+    private readonly ISideloadUpdateService _sideloadUpdateService;
     private readonly IMailDialogService _dialogService;
     private WinoApplicationMode _currentMode;
 
@@ -23,8 +24,9 @@ public sealed class WinoAppShellViewModel : CoreBaseViewModel, IShellViewModel
                                  IPreferencesService preferencesService,
                                  IStatePersistanceService statePersistenceService,
                                  INavigationService navigationService,
-                                 IStoreUpdateService storeUpdateService,
-                                 IMailDialogService dialogService)
+                                  IStoreUpdateService storeUpdateService,
+                                  ISideloadUpdateService sideloadUpdateService,
+                                  IMailDialogService dialogService)
     {
         MailClient = mailClient;
         CalendarClient = calendarClient;
@@ -32,6 +34,7 @@ public sealed class WinoAppShellViewModel : CoreBaseViewModel, IShellViewModel
         StatePersistenceService = statePersistenceService;
         NavigationService = navigationService;
         _storeUpdateService = storeUpdateService;
+        _sideloadUpdateService = sideloadUpdateService;
         _dialogService = dialogService;
 
         _shellClients = shellClients.ToDictionary(client => client.Mode);
@@ -100,6 +103,11 @@ public sealed class WinoAppShellViewModel : CoreBaseViewModel, IShellViewModel
         if (!PreferencesService.IsStoreUpdateNotificationsEnabled)
             return;
 
+        // Self-signed sideload builds are invisible to the Store, so they check
+        // the own GitHub releases feed instead. Same cert = in-place upgrade.
+        if (await ShowSideloadUpdateDialogIfNeededAsync())
+            return;
+
         var hasAvailableUpdate = await _storeUpdateService.RefreshAvailabilityAsync();
 
         if (!hasAvailableUpdate || !PreferencesService.IsStoreUpdateNotificationsEnabled)
@@ -117,6 +125,29 @@ public sealed class WinoAppShellViewModel : CoreBaseViewModel, IShellViewModel
         {
             await _storeUpdateService.StartUpdateAsync();
         }
+    }
+
+    private async Task<bool> ShowSideloadUpdateDialogIfNeededAsync()
+    {
+        var update = await _sideloadUpdateService.CheckForUpdateAsync();
+
+        if (update == null || !PreferencesService.IsStoreUpdateNotificationsEnabled)
+            return false;
+
+        var shouldUpdate = await _dialogService.ShowWinoCustomMessageDialogAsync(
+            Translator.Notifications_SideloadUpdateAvailableTitle,
+            string.Format(Translator.Notifications_SideloadUpdateAvailableMessage, update.Version),
+            Translator.Buttons_Update,
+            WinoCustomMessageDialogIcon.Information,
+            Translator.Buttons_NotNow,
+            Constants.SideloadUpdateNotificationSuppressionKey);
+
+        if (shouldUpdate)
+        {
+            await _sideloadUpdateService.DownloadAndLaunchUpdateAsync(update);
+        }
+
+        return true;
     }
 
     public IShellClient GetClient(WinoApplicationMode mode)

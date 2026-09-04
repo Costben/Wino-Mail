@@ -138,6 +138,16 @@ public interface IPreferencesService : INotifyPropertyChanged
     bool AllowUnlimitedAccounts { get; set; }
 
     /// <summary>
+    /// Setting: Whether sideload builds check the own GitHub releases feed for updates. Default true.
+    /// </summary>
+    bool IsSideloadUpdateCheckEnabled { get; set; }
+
+    /// <summary>
+    /// GitHub releases API feed used for sideload update checks.
+    /// </summary>
+    string SideloadUpdateFeedUrl { get; set; }
+
+    /// <summary>
     /// Serializes the current syncable preferences snapshot.
     /// </summary>
     string ExportPreferences();
