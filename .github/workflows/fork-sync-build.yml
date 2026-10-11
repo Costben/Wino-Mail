@@ -1,0 +1,265 @@
+name: Fork auto-sync upstream + sideload build
+
+# Personal fork automation for Costben/Wino-Mail.
+# - Scheduled / manual: rebase custom/local-toggles onto upstream/main.
+# - If rebase is clean: force-push (lease) the branch and build a signed x64 MSIX.
+# - If rebase conflicts: job fails WITHOUT pushing; resolve locally and re-run.
+# Required secrets: BETA_SIGNING_CERT_PFX_BASE64 (base64 of the sideload PFX) and
+# BETA_SIGNING_CERT_PASSWORD (its password). The PFX must be the SAME self-signed
+# cert used for local sideloads (CN=51FBDAF3-E212-4149-89A2-A2636B3BC911) — MUST stay
+# the same cert or installed app cannot upgrade in place.
+# NOTE: `schedule` only fires on the fork's DEFAULT branch. Either set the fork
+# default branch to custom/local-toggles, or copy this file onto main.
+# NOTE: upstream keeps every project under src/ since the 2026-09 restructure; the
+# project and manifest paths below must follow that layout.
+
+on:
+  schedule:
+    - cron: "0 2 * * 0"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Rebase only, do not push or build"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  sync-and-build:
+    name: Rebase onto upstream and build MSIX
+    runs-on: windows-latest
+    env:
+      PROJECT_PATH: src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj
+      MANIFEST_PATH: src/Wino.Mail.WinUI/Package.appxmanifest
+      NUGET_CONFIG_PATH: ${{ github.workspace }}\nuget.config
+      PACKAGE_OUTPUT_DIR: ${{ github.workspace }}\artifacts\package
+      RELEASE_OUTPUT_DIR: ${{ github.workspace }}\artifacts\release
+      BUILD_ARTIFACTS_DIR: ${{ github.workspace }}\artifacts\build
+      NOTIFICATION_HOSTS_DIR: ${{ github.workspace }}\artifacts\notification-hosts
+      CERTIFICATE_PFX_PATH: ${{ github.workspace }}\artifacts\signing\sideload-signing-cert.pfx
+      CERTIFICATE_CER_PATH: ${{ github.workspace }}\artifacts\release\Wino-Mail-Sideload.cer
+      CUSTOM_BRANCH: custom/local-toggles
+    steps:
+      - name: Checkout custom branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CUSTOM_BRANCH }}
+          fetch-depth: 0
+
+      - name: Fetch upstream and rebase
+        id: rebase
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote add upstream https://github.com/bkaankose/Wino-Mail.git 2>$null
+          git fetch upstream --prune
+          git fetch origin $env:CUSTOM_BRANCH
+
+          $before = (git rev-parse HEAD).Trim()
+          $upstreamHead = (git rev-parse upstream/main).Trim()
+          "before=$before" >> $env:GITHUB_OUTPUT
+          "upstream_head=$upstreamHead" >> $env:GITHUB_OUTPUT
+
+          if ($before -eq $upstreamHead) {
+            "already_up_to_date=true" >> $env:GITHUB_OUTPUT
+            Write-Output "Custom branch is already on upstream HEAD."
+            exit 0
+          }
+
+          git rebase upstream/main
+          if ($LASTEXITCODE -ne 0) {
+            Write-Output "::error::Rebase onto upstream/main has conflicts. Aborting, nothing pushed. Resolve locally: checkout $($env:CUSTOM_BRANCH), run 'git rebase upstream/main', push, then re-run this workflow."
+            git rebase --abort
+            "rebase_conflict=true" >> $env:GITHUB_OUTPUT
+            exit 1
+          }
+
+          $after = (git rev-parse HEAD).Trim()
+          "after=$after" >> $env:GITHUB_OUTPUT
+          if ($before -eq $after) {
+            "already_up_to_date=true" >> $env:GITHUB_OUTPUT
+          } else {
+            "already_up_to_date=false" >> $env:GITHUB_OUTPUT
+          }
+
+      - name: Push rebased branch
+        if: steps.rebase.outputs.rebase_conflict != 'true' && github.event.inputs.dry_run != 'true' && steps.rebase.outputs.already_up_to_date == 'false'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git push --force-with-lease origin "${{ env.CUSTOM_BRANCH }}:${{ env.CUSTOM_BRANCH }}"
+
+      - name: Validate signing secret
+        if: github.event.inputs.dry_run != 'true'
+        shell: pwsh
+        env:
+          BETA_SIGNING_CERT_PFX_BASE64: ${{ secrets.BETA_SIGNING_CERT_PFX_BASE64 }}
+          BETA_SIGNING_CERT_PASSWORD: ${{ secrets.BETA_SIGNING_CERT_PASSWORD }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:BETA_SIGNING_CERT_PFX_BASE64)) {
+            throw "Missing required secret: BETA_SIGNING_CERT_PFX_BASE64. Export your sideload PFX (CN=51FBDAF3-...) and add it as a repo/Actions secret."
+          }
+          if ([string]::IsNullOrWhiteSpace($env:BETA_SIGNING_CERT_PASSWORD)) {
+            throw "Missing required secret: BETA_SIGNING_CERT_PASSWORD."
+          }
+
+      - name: Setup .NET SDK
+        if: github.event.inputs.dry_run != 'true'
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Read package version from manifest
+        id: metadata
+        if: github.event.inputs.dry_run != 'true'
+        shell: pwsh
+        run: |
+          [xml]$manifest = Get-Content -LiteralPath (Join-Path $env:GITHUB_WORKSPACE $env:MANIFEST_PATH)
+          $version = [string]$manifest.Package.Identity.Version
+          if ($version -notmatch '^\d+\.\d+\.\d+\.\d+$') {
+            throw "Manifest version '$version' is not four-part numeric."
+          }
+          $sha = (git rev-parse --short HEAD).Trim()
+          "package_version=$version" >> $env:GITHUB_OUTPUT
+          "short_sha=$sha" >> $env:GITHUB_OUTPUT
+          "artifact_name=Wino-Sideload_${version}_${sha}" >> $env:GITHUB_OUTPUT
+
+      - name: Materialize signing certificate
+        if: github.event.inputs.dry_run != 'true'
+        shell: pwsh
+        env:
+          BETA_SIGNING_CERT_PFX_BASE64: ${{ secrets.BETA_SIGNING_CERT_PFX_BASE64 }}
+          BETA_SIGNING_CERT_PASSWORD: ${{ secrets.BETA_SIGNING_CERT_PASSWORD }}
+        run: |
+          New-Item -ItemType Directory -Path (Split-Path -Parent $env:CERTIFICATE_PFX_PATH) -Force | Out-Null
+          [IO.File]::WriteAllBytes($env:CERTIFICATE_PFX_PATH, [Convert]::FromBase64String($env:BETA_SIGNING_CERT_PFX_BASE64))
+          $certificate = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2($env:CERTIFICATE_PFX_PATH, $env:BETA_SIGNING_CERT_PASSWORD, [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable)
+          New-Item -ItemType Directory -Path (Split-Path -Parent $env:CERTIFICATE_CER_PATH) -Force | Out-Null
+          [IO.File]::WriteAllBytes($env:CERTIFICATE_CER_PATH, $certificate.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert))
+
+      - name: Restore WinUI project dependencies
+        if: github.event.inputs.dry_run != 'true'
+        shell: pwsh
+        run: |
+          # Configuration must match the build below. Only Release sets WinoIsReleaseBuild,
+          # which turns on PublishAot and thereby pulls the Native AOT runtime pack into the
+          # restore graph. Restoring with the default Debug silently drops that pack, and the
+          # later Release build then skips ILC and fails inside MakeAppx.
+          dotnet restore $env:PROJECT_PATH `
+            --configfile $env:NUGET_CONFIG_PATH `
+            -p:Configuration=Release `
+            -p:Platform=x64 `
+            -p:RuntimeIdentifier=win-x64 `
+            -p:ArtifactsPath="$env:BUILD_ARTIFACTS_DIR" `
+            -p:NotificationHostPublishRoot="$env:NOTIFICATION_HOSTS_DIR\\" `
+            /p:RestoreConfigFile="$env:NUGET_CONFIG_PATH"
+
+      - name: Verify Native AOT toolchain is restored
+        if: github.event.inputs.dry_run != 'true'
+        shell: pwsh
+        run: |
+          $properties = dotnet msbuild $env:PROJECT_PATH `
+            -p:Configuration=Release `
+            -p:Platform=x64 `
+            -p:RuntimeIdentifier=win-x64 `
+            -p:ArtifactsPath="$env:BUILD_ARTIFACTS_DIR" `
+            -p:NotificationHostPublishRoot="$env:NOTIFICATION_HOSTS_DIR\\" `
+            -getProperty:PublishAot `
+            -getProperty:ILCompilerTargetsPath | Out-String
+          Write-Output $properties
+          if ($properties -notmatch '"ILCompilerTargetsPath"\s*:\s*"[^"]+"') {
+            throw "Release requests Native AOT but the ILC toolchain is missing, so the build would silently skip ILC and MakeAppx would fail on a missing Wino.Mail.WinUI.exe. Keep the restore step's Configuration in sync with the build."
+          }
+
+      - name: Build x64 MSIX (unsigned)
+        if: github.event.inputs.dry_run != 'true'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path $env:PACKAGE_OUTPUT_DIR -Force | Out-Null
+          dotnet build $env:PROJECT_PATH `
+            --configuration Release `
+            --no-restore `
+            --configfile $env:NUGET_CONFIG_PATH `
+            /p:Platform=x64 `
+            /p:RuntimeIdentifier=win-x64 `
+            /p:RestoreConfigFile="$env:NUGET_CONFIG_PATH" `
+            /p:ArtifactsPath="$env:BUILD_ARTIFACTS_DIR" `
+            /p:NotificationHostPublishRoot="$env:NOTIFICATION_HOSTS_DIR\\" `
+            /p:GenerateAppxPackageOnBuild=true `
+            /p:UapAppxPackageBuildMode=SideloadOnly `
+            /p:AppxBundle=Never `
+            /p:AppxBundlePlatforms="x64" `
+            /p:AppxPackageDir="$env:PACKAGE_OUTPUT_DIR\\" `
+            /p:AppxPackageVersion=${{ steps.metadata.outputs.package_version }} `
+            /p:AppxPackageSigningEnabled=false `
+            /p:GenerateTemporaryStoreCertificate=false `
+            /p:GenerateAppInstallerFile=false `
+            /p:AppxAutoIncrementPackageRevision=false
+
+      - name: Sign MSIX with the sideload certificate
+        if: github.event.inputs.dry_run != 'true'
+        shell: pwsh
+        env:
+          BETA_SIGNING_CERT_PASSWORD: ${{ secrets.BETA_SIGNING_CERT_PASSWORD }}
+        run: |
+          $msix = Get-ChildItem -Path $env:PACKAGE_OUTPUT_DIR -Recurse -Filter *.msix | Select-Object -First 1
+          if (-not $msix) { throw "No .msix was produced under $env:PACKAGE_OUTPUT_DIR" }
+
+          $signTool = Get-ChildItem (Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\bin\*\x64\signtool.exe') -ErrorAction SilentlyContinue |
+            Sort-Object FullName -Descending | Select-Object -First 1
+          if (-not $signTool) { throw 'signtool.exe was not found in the installed Windows SDK.' }
+          $signToolPath = $signTool.FullName
+
+          $expected = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($env:CERTIFICATE_PFX_PATH, $env:BETA_SIGNING_CERT_PASSWORD)
+          if (-not $expected.HasPrivateKey) {
+            throw 'BETA_SIGNING_CERT_PFX_BASE64 carries no private key. Export the sideload PFX together with its private key.'
+          }
+
+          & $signToolPath sign /fd SHA256 /f $env:CERTIFICATE_PFX_PATH /p $env:BETA_SIGNING_CERT_PASSWORD $msix.FullName
+          if ($LASTEXITCODE -ne 0) { throw "Signing $($msix.Name) failed with exit code $LASTEXITCODE." }
+
+          $signature = Get-AuthenticodeSignature -LiteralPath $msix.FullName
+          if ($null -eq $signature.SignerCertificate -or $signature.SignerCertificate.Thumbprint -cne $expected.Thumbprint) {
+            throw 'The produced package is not signed with the sideload certificate.'
+          }
+          Write-Output "Signed $($msix.Name) with $($expected.Thumbprint)"
+
+      - name: Upload MSIX artifact
+        if: github.event.inputs.dry_run != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.metadata.outputs.artifact_name }}
+          path: |
+            ${{ env.PACKAGE_OUTPUT_DIR }}\**\*.msix
+            ${{ env.CERTIFICATE_CER_PATH }}
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish sideload prerelease
+        if: github.event.inputs.dry_run != 'true'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = "sideload-v${{ steps.metadata.outputs.package_version }}-${{ steps.metadata.outputs.short_sha }}"
+          $msix = Get-ChildItem -Path $env:PACKAGE_OUTPUT_DIR -Recurse -Filter *.msix | Select-Object -First 1
+          if (-not $msix) {
+            throw "No .msix file was generated under $env:PACKAGE_OUTPUT_DIR"
+          }
+
+          $existing = gh release view $tag --repo "${{ github.repository }}" --json tagName 2>$null
+          if ($existing) {
+            Write-Output "Release $tag already exists, skipping publish."
+            exit 0
+          }
+
+          gh release create $tag $msix.FullName $env:CERTIFICATE_CER_PATH `
+            --repo "${{ github.repository }}" `
+            --title "Sideload ${{ steps.metadata.outputs.package_version }} (${{ steps.metadata.outputs.short_sha }})" `
+            --notes "Automated sideload build from custom/local-toggles. Same signing cert as previous sideloads, installs as in-place upgrade." `
+            --prerelease
