@@ -901,7 +901,7 @@ public partial class PreferencesService(IConfigurationService configurationServi
 
     public bool IsWinoAccountButtonHidden
     {
-        get => _configurationService.Get(nameof(IsWinoAccountButtonHidden), false);
+        get => _configurationService.Get(nameof(IsWinoAccountButtonHidden), true);
         set => SetPropertyAndSave(nameof(IsWinoAccountButtonHidden), value);
     }
 
@@ -915,6 +915,48 @@ public partial class PreferencesService(IConfigurationService configurationServi
     {
         get => _configurationService.Get(nameof(AiSummarizeLanguageCode), "en-US");
         set => SetPropertyAndSave(nameof(AiSummarizeLanguageCode), string.IsNullOrWhiteSpace(value) ? "en-US" : value.Trim());
+    }
+
+    public bool IsCustomAiEnabled
+    {
+        get => _configurationService.Get(nameof(IsCustomAiEnabled), true);
+        set => SetPropertyAndSave(nameof(IsCustomAiEnabled), value);
+    }
+
+    public string CustomAiBaseUrl
+    {
+        get => _configurationService.Get(nameof(CustomAiBaseUrl), string.Empty);
+        set => SetPropertyAndSave(nameof(CustomAiBaseUrl), value?.Trim() ?? string.Empty);
+    }
+
+    public string CustomAiApiKey
+    {
+        get => _configurationService.Get(nameof(CustomAiApiKey), string.Empty);
+        set => SetPropertyAndSave(nameof(CustomAiApiKey), value?.Trim() ?? string.Empty);
+    }
+
+    public string CustomAiModel
+    {
+        get => _configurationService.Get(nameof(CustomAiModel), "gpt-4o-mini");
+        set => SetPropertyAndSave(nameof(CustomAiModel), string.IsNullOrWhiteSpace(value) ? "gpt-4o-mini" : value.Trim());
+    }
+
+    public bool IsSideloadUpdateCheckEnabled
+    {
+        get => _configurationService.Get(nameof(IsSideloadUpdateCheckEnabled), true);
+        set => SetPropertyAndSave(nameof(IsSideloadUpdateCheckEnabled), value);
+    }
+
+    public string SideloadUpdateFeedUrl
+    {
+        get => _configurationService.Get(nameof(SideloadUpdateFeedUrl), "https://api.github.com/repos/Costben/Wino-Mail/releases");
+        set => SetPropertyAndSave(nameof(SideloadUpdateFeedUrl), string.IsNullOrWhiteSpace(value) ? "https://api.github.com/repos/Costben/Wino-Mail/releases" : value.Trim());
+    }
+
+    public bool AllowUnlimitedAccounts
+    {
+        get => _configurationService.Get(nameof(AllowUnlimitedAccounts), true);
+        set => SetPropertyAndSave(nameof(AllowUnlimitedAccounts), value);
     }
 
     public CalendarSettings GetCurrentCalendarSettings()

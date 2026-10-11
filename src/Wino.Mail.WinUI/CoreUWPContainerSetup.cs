@@ -61,6 +61,7 @@ public static class CoreUWPContainerSetup
         services.AddTransient<IConfigurationService, ConfigurationService>();
         services.AddTransient<IFileService, FileService>();
         services.AddSingleton<IMicrosoftStoreService, MicrosoftStoreService>();
+        services.AddSingleton<ISideloadUpdateService, SideloadUpdateService>();
         // Lazy edges break the two constructor cycles in the shell: the Store service reaches the
         // dialog service (dialog -> profile -> intelligence -> billing -> store), and the window
         // manager reaches the theme service (theme -> window manager).

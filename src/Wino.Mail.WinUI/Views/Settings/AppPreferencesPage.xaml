@@ -68,6 +68,26 @@
             </controls:SettingsCard.HeaderIcon>
         </controls:SettingsCard>
 
+        <controls:SettingsCard
+            AutomationProperties.AutomationId="AppPreferencesPageSettingsCard9"
+            Description="{x:Bind domain:Translator.SettingsAppPreferences_SideloadUpdate_Description}"
+            Header="{x:Bind domain:Translator.SettingsAppPreferences_SideloadUpdate_Title}">
+            <ToggleSwitch AutomationProperties.AutomationId="AppPreferencesSideloadUpdateToggleSwitch" IsOn="{x:Bind ViewModel.PreferencesService.IsSideloadUpdateCheckEnabled, Mode=TwoWay}" />
+            <controls:SettingsCard.HeaderIcon>
+                <coreControls:WinoFontIcon Icon="ArrowDownload" />
+            </controls:SettingsCard.HeaderIcon>
+        </controls:SettingsCard>
+
+        <controls:SettingsCard
+            AutomationProperties.AutomationId="AppPreferencesPageSettingsCard10"
+            Description="{x:Bind domain:Translator.SettingsAppPreferences_UnlimitedAccounts_Description}"
+            Header="{x:Bind domain:Translator.SettingsAppPreferences_UnlimitedAccounts_Title}">
+            <ToggleSwitch AutomationProperties.AutomationId="AppPreferencesUnlimitedAccountsToggleSwitch" IsOn="{x:Bind ViewModel.PreferencesService.AllowUnlimitedAccounts, Mode=TwoWay}" />
+            <controls:SettingsCard.HeaderIcon>
+                <coreControls:WinoFontIcon Icon="People" />
+            </controls:SettingsCard.HeaderIcon>
+        </controls:SettingsCard>
+
     </StackPanel>
 
     <VisualStateManager.VisualStateGroups>

@@ -67,6 +67,7 @@ public static class ServicesContainerSetup
         services.AddSingleton<IKeyboardShortcutService, KeyboardShortcutService>();
         services.AddSingleton<IWinoAccountSessionService>(provider => WinoAccountSessionService.For(provider.GetRequiredService<IDatabaseService>(), provider.GetRequiredService<IAccountCredentialPersistence>()));
         services.AddSingleton<IWinoAccountApiClient, WinoAccountApiClient>();
+        services.AddSingleton<ICustomAiService, CustomAiService>();
         services.AddSingleton<IIntelligenceBackend, CloudIntelligenceBackend>();
         services.AddSingleton<IWinoAccountProfileService, WinoAccountProfileService>();
         services.AddSingleton<IWinoBillingService, WinoBillingService>();

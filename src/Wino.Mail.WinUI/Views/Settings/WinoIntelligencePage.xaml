@@ -449,6 +449,44 @@
                         </controls:SettingsCard>
                     </controls:SettingsExpander.Items>
                 </controls:SettingsExpander>
+
+                <controls:SettingsExpander
+                    AutomationProperties.AutomationId="WinoIntelligenceCustomAiExpander"
+                    Description="{x:Bind domain:Translator.SettingsAppPreferences_CustomAiEnabled_Description}"
+                    Header="{x:Bind domain:Translator.SettingsAppPreferences_CustomAiEnabled_Title}">
+                    <controls:SettingsExpander.HeaderIcon>
+                        <coreControls:WinoFontIcon Icon="WinoIntelligence" />
+                    </controls:SettingsExpander.HeaderIcon>
+                    <ToggleSwitch AutomationProperties.AutomationId="WinoIntelligenceCustomAiEnabledToggleSwitch" IsOn="{x:Bind ViewModel.IsCustomAiEnabled, Mode=TwoWay}" />
+                    <controls:SettingsExpander.Items>
+                        <controls:SettingsCard
+                            HorizontalContentAlignment="Stretch"
+                            Description="{x:Bind domain:Translator.SettingsAppPreferences_CustomAiBaseUrl_Description}"
+                            Header="{x:Bind domain:Translator.SettingsAppPreferences_CustomAiBaseUrl_Title}">
+                            <TextBox
+                                AutomationProperties.AutomationId="WinoIntelligenceCustomAiBaseUrlTextBox"
+                                PlaceholderText="{x:Bind domain:Translator.SettingsAppPreferences_CustomAiBaseUrl_Placeholder}"
+                                Text="{x:Bind ViewModel.CustomAiBaseUrl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        </controls:SettingsCard>
+
+                        <controls:SettingsCard
+                            HorizontalContentAlignment="Stretch"
+                            Description="{x:Bind domain:Translator.SettingsAppPreferences_CustomAiApiKey_Description}"
+                            Header="{x:Bind domain:Translator.SettingsAppPreferences_CustomAiApiKey_Title}">
+                            <PasswordBox AutomationProperties.AutomationId="WinoIntelligenceCustomAiApiKeyPasswordBox" Password="{x:Bind ViewModel.CustomAiApiKey, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        </controls:SettingsCard>
+
+                        <controls:SettingsCard
+                            HorizontalContentAlignment="Stretch"
+                            Description="{x:Bind domain:Translator.SettingsAppPreferences_CustomAiModel_Description}"
+                            Header="{x:Bind domain:Translator.SettingsAppPreferences_CustomAiModel_Title}">
+                            <TextBox
+                                AutomationProperties.AutomationId="WinoIntelligenceCustomAiModelTextBox"
+                                PlaceholderText="{x:Bind domain:Translator.SettingsAppPreferences_CustomAiModel_Placeholder}"
+                                Text="{x:Bind ViewModel.CustomAiModel, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        </controls:SettingsCard>
+                    </controls:SettingsExpander.Items>
+                </controls:SettingsExpander>
             </StackPanel>
         </ScrollViewer>
 

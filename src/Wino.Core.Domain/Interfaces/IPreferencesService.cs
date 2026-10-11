@@ -37,6 +37,21 @@ public interface IPreferencesService : INotifyPropertyChanged
     bool IsStoreUpdateNotificationsEnabled { get; set; }
 
     /// <summary>
+    /// Setting: Whether sideload builds check the own GitHub releases feed for updates. Default true.
+    /// </summary>
+    bool IsSideloadUpdateCheckEnabled { get; set; }
+
+    /// <summary>
+    /// GitHub releases API feed used for sideload update checks.
+    /// </summary>
+    string SideloadUpdateFeedUrl { get; set; }
+
+    /// <summary>
+    /// Setting: Whether unlimited mail accounts are allowed without store purchase. Default true.
+    /// </summary>
+    bool AllowUnlimitedAccounts { get; set; }
+
+    /// <summary>
     /// Setting: Whether the system tray icon should be created while the shell is available.
     /// </summary>
     bool IsSystemTrayIconEnabled { get; set; }
@@ -473,6 +488,26 @@ public interface IPreferencesService : INotifyPropertyChanged
     /// Setting: Preferred target language code for AI summarize actions.
     /// </summary>
     string AiSummarizeLanguageCode { get; set; }
+
+    /// <summary>
+    /// Setting: Whether the custom OpenAI-compatible AI endpoint is used instead of Wino AI. Default true.
+    /// </summary>
+    bool IsCustomAiEnabled { get; set; }
+
+    /// <summary>
+    /// OpenAI-compatible base URL used for custom AI actions.
+    /// </summary>
+    string CustomAiBaseUrl { get; set; }
+
+    /// <summary>
+    /// API key used for custom AI actions.
+    /// </summary>
+    string CustomAiApiKey { get; set; }
+
+    /// <summary>
+    /// Model name used for custom AI actions.
+    /// </summary>
+    string CustomAiModel { get; set; }
 
     #endregion
 

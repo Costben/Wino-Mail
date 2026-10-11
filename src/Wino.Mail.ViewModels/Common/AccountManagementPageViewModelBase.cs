@@ -163,7 +163,7 @@ public abstract partial class AccountManagementPageViewModelBase : CoreBaseViewM
         {
             HasUnlimitedAccountProduct = hasUnlimitedAccountProduct;
             IsWinoAccountSignedIn = isWinoAccountSignedIn;
-            IsAccountCreationBlocked = !hasUnlimitedAccountProduct && UsedAccountCount >= FREE_ACCOUNT_COUNT;
+            IsAccountCreationBlocked = !PreferencesService.AllowUnlimitedAccounts && !hasUnlimitedAccountProduct && UsedAccountCount >= FREE_ACCOUNT_COUNT;
         });
     }
 

@@ -27,6 +27,7 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
 {
     private readonly IWinoAccountApiClient _apiClient;
     private readonly IAccountCredentialPersistence _credentialPersistence;
+    private readonly ICustomAiService? _customAiService;
     private readonly ISyncSnapshotKeyService? _snapshotKeys;
     private readonly ITranslationService? _translationService;
     private readonly IMailIntelligenceCoordinator? _semanticIndexCoordinator;
@@ -43,11 +44,13 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
                                      IMailIntelligenceStore? localIntelligenceStore = null,
                                      IWinoAccountSessionService? sessionService = null,
                                      IWinoPendingCheckoutStore? pendingCheckouts = null,
-                                     ISyncSnapshotKeyService? snapshotKeys = null) : base(databaseService)
+                                     ISyncSnapshotKeyService? snapshotKeys = null,
+                                     ICustomAiService? customAiService = null) : base(databaseService)
     {
         _snapshotKeys = snapshotKeys;
         _apiClient = apiClient;
         _credentialPersistence = credentialPersistence;
+        _customAiService = customAiService;
         _translationService = translationService;
         _semanticIndexCoordinator = semanticIndexCoordinator;
         _localIntelligenceStore = localIntelligenceStore;
@@ -262,13 +265,28 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
     }
 
     public async Task<ApiEnvelope<AiSummaryResultDto>> SummarizeAsync(IReadOnlyList<MailContentSegment> segments, string targetLanguage, CancellationToken cancellationToken = default)
-        => await ExecuteAiOperationAsync(account => _apiClient.SummarizeAsync(segments, targetLanguage, cancellationToken), "summarize", cancellationToken).ConfigureAwait(false);
+        => _customAiService?.IsConfigured == true
+            ? await _customAiService.SummarizeAsync(segments, targetLanguage, cancellationToken).ConfigureAwait(false)
+            : await ExecuteAiOperationAsync(account => _apiClient.SummarizeAsync(segments, targetLanguage, cancellationToken), "summarize", cancellationToken).ConfigureAwait(false);
 
     public async Task<ApiEnvelope<AiTranslationResultDto>> TranslateAsync(IReadOnlyList<MailContentSegment> segments, string? sourceLanguage, string targetLanguage, CancellationToken cancellationToken = default)
-        => await ExecuteAiOperationAsync(account => _apiClient.TranslateAsync(segments, sourceLanguage, targetLanguage, cancellationToken), "translate", cancellationToken).ConfigureAwait(false);
+        => _customAiService?.IsConfigured == true
+            ? await _customAiService.TranslateAsync(segments, sourceLanguage, targetLanguage, cancellationToken).ConfigureAwait(false)
+            : await ExecuteAiOperationAsync(account => _apiClient.TranslateAsync(segments, sourceLanguage, targetLanguage, cancellationToken), "translate", cancellationToken).ConfigureAwait(false);
 
     public async Task<ApiEnvelope<AiTextResultDto>> RewriteAsync(string html, string mode, string context, CancellationToken cancellationToken = default)
-        => await ExecuteAiOperationAsync(
+    {
+        if (_customAiService?.IsConfigured == true)
+        {
+            return await _customAiService.RewriteAsync(
+                html,
+                mode,
+                _translationService?.CurrentLanguageModel?.Code ?? CultureInfo.CurrentUICulture.Name ?? "en-US",
+                context,
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        return await ExecuteAiOperationAsync(
             account => _apiClient.RewriteAsync(
                 html,
                 mode,
@@ -277,6 +295,7 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
                 cancellationToken),
             "rewrite",
             cancellationToken).ConfigureAwait(false);
+    }
 
     public async Task<WinoSyncSnapshotDownload?> GetSyncSnapshotAsync(CancellationToken cancellationToken = default)
     {
