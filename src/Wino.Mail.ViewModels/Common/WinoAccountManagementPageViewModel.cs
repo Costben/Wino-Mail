@@ -42,6 +42,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     private readonly IMailIntelligenceCoordinator _semanticIndexCoordinator;
     private readonly IPreferencesService _preferencesService;
     private bool _isAiLanguageInitialized;
+    private bool _isCustomAiInitialized;
     private readonly IWinoAccountIntelligenceSnapshotService? _snapshotService;
     private readonly WinoAddOnItemViewModel _aiPackAddOn;
     private readonly WinoAddOnItemViewModel _unlimitedAccountsAddOn;
@@ -377,6 +378,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         ApplySubtitleTexts();
         ApplyAccountUsage(mailAccountCount: 0, hasUnlimitedAccounts: false);
         InitializeAiLanguageOptions();
+        InitializeCustomAiOptions();
     }
 
     /// <summary>
@@ -475,6 +477,18 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     [ObservableProperty]
     public partial AiTranslateLanguageOption? SelectedSummarizeLanguage { get; set; }
 
+    [ObservableProperty]
+    public partial bool IsCustomAiEnabled { get; set; }
+
+    [ObservableProperty]
+    public partial string CustomAiBaseUrl { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string CustomAiApiKey { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string CustomAiModel { get; set; } = string.Empty;
+
     private void InitializeAiLanguageOptions()
     {
         var translateLanguageOptions = AiActionCatalog.GetTranslateLanguageOptions();
@@ -488,6 +502,48 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         SelectedSummarizeLanguage = FindAiLanguageOption(_preferencesService.AiSummarizeLanguageCode);
 
         _isAiLanguageInitialized = true;
+    }
+
+    private void InitializeCustomAiOptions()
+    {
+        IsCustomAiEnabled = _preferencesService.IsCustomAiEnabled;
+        CustomAiBaseUrl = _preferencesService.CustomAiBaseUrl;
+        CustomAiApiKey = _preferencesService.CustomAiApiKey;
+        CustomAiModel = _preferencesService.CustomAiModel;
+
+        _isCustomAiInitialized = true;
+    }
+
+    partial void OnIsCustomAiEnabledChanged(bool value)
+    {
+        if (!_isCustomAiInitialized)
+            return;
+
+        _preferencesService.IsCustomAiEnabled = value;
+    }
+
+    partial void OnCustomAiBaseUrlChanged(string value)
+    {
+        if (!_isCustomAiInitialized)
+            return;
+
+        _preferencesService.CustomAiBaseUrl = value ?? string.Empty;
+    }
+
+    partial void OnCustomAiApiKeyChanged(string value)
+    {
+        if (!_isCustomAiInitialized)
+            return;
+
+        _preferencesService.CustomAiApiKey = value ?? string.Empty;
+    }
+
+    partial void OnCustomAiModelChanged(string value)
+    {
+        if (!_isCustomAiInitialized)
+            return;
+
+        _preferencesService.CustomAiModel = value ?? string.Empty;
     }
 
     private AiTranslateLanguageOption? FindAiLanguageOption(string languageCode)

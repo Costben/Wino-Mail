@@ -95,6 +95,7 @@ public static class ServicesContainerSetup
         services.AddSingleton<IWinoAccountSessionService, WinoAccountSessionService>();
         services.AddSingleton<IWinoAccountApiClient, WinoAccountApiClient>();
         RegisterAssistantServices(services);
+        services.AddSingleton<ICustomAiService, CustomAiService>();
         services.AddSingleton<IIntelligenceBackend, CloudIntelligenceBackend>();
         services.AddSingleton<IWinoAccountProfileService, WinoAccountProfileService>();
         RegisterPushRelayServices(services);
