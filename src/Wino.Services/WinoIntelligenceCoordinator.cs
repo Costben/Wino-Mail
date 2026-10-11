@@ -41,6 +41,7 @@ public sealed partial class WinoIntelligenceCoordinator : IWinoIntelligenceCoord
     private readonly IWinoLogger _logger;
     private readonly IMailContentProjector _contentProjector;
     private readonly IWinoAccountIntelligenceSnapshotService? _accountSnapshotService;
+    private readonly ICustomAiService? _customAiService;
     private readonly ConcurrentDictionary<Guid, PendingRequest> _requests = new();
 
     public WinoIntelligenceCoordinator(
@@ -57,7 +58,8 @@ public sealed partial class WinoIntelligenceCoordinator : IWinoIntelligenceCoord
         IPreferencesService preferencesService,
         IWinoLogger logger,
         IMailContentProjector contentProjector,
-        IWinoAccountIntelligenceSnapshotService? accountSnapshotService = null)
+        IWinoAccountIntelligenceSnapshotService? accountSnapshotService = null,
+        ICustomAiService? customAiService = null)
     {
         _profileService = profileService;
         _apiClient = apiClient;
@@ -73,6 +75,7 @@ public sealed partial class WinoIntelligenceCoordinator : IWinoIntelligenceCoord
         _logger = logger;
         _contentProjector = contentProjector;
         _accountSnapshotService = accountSnapshotService;
+        _customAiService = customAiService;
 
         WeakReferenceMessenger.Default.Register<WinoIntelligenceAccessChanged>(this, static (recipient, _) =>
             ((WinoIntelligenceCoordinator)recipient).InvalidateAccess());
@@ -116,7 +119,10 @@ public sealed partial class WinoIntelligenceCoordinator : IWinoIntelligenceCoord
             var candidate = access.HasIntelligenceConsent && isSupportedProvider
                 ? await _messageResolver.FindCandidateAsync(context.LocalAccountId, context.MessageId, cancellationToken).ConfigureAwait(false)
                 : null;
-            var processingAvailable = access.CanConsumeQuota &&
+            // A custom endpoint only covers on-demand summary, translation and rewrite; message
+            // processing still belongs to the Wino backend, so it stays off.
+            var processingAvailable = _customAiService?.IsConfigured != true &&
+                                      access.CanConsumeQuota &&
                                       access.HasIntelligenceConsent &&
                                       context.IsSemanticIndexingEnabled &&
                                       candidate is not null &&
@@ -326,6 +332,11 @@ public sealed partial class WinoIntelligenceCoordinator : IWinoIntelligenceCoord
 
     private async Task<AccessSnapshot> GetAccessAsync(Guid localAccountId, CancellationToken cancellationToken)
     {
+        // A local OpenAI-compatible endpoint replaces the Wino backend entirely, so the add-on,
+        // quota and consent gates do not apply and no Wino account is required.
+        if (_customAiService?.IsConfigured == true)
+            return new AccessSnapshot(true, true, null, true);
+
         // Reader initialization must stay local. Authentication refreshes and entitlement API calls
         // are explicit account/intelligence-management operations, never a side effect of opening mail.
         var winoAccount = await _profileService.GetActiveAccountAsync().ConfigureAwait(false);

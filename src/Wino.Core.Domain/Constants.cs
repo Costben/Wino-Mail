@@ -49,6 +49,7 @@ public static class Constants
     public const string ToastStoreUpdateActionKey = nameof(ToastStoreUpdateActionKey);
     public const string ToastStoreUpdateActionInstall = nameof(ToastStoreUpdateActionInstall);
     public const string StoreUpdateNotificationSuppressionKey = nameof(StoreUpdateNotificationSuppressionKey);
+    public const string SideloadUpdateNotificationSuppressionKey = nameof(SideloadUpdateNotificationSuppressionKey);
 
     /// <summary>Mail synchronization interval in minutes when the user has not chosen one, or the platform has no choice.</summary>
     public const int DefaultEmailSyncIntervalMinutes = 3;
