@@ -26,6 +26,7 @@ public sealed partial class WinoAppShellViewModel : CoreBaseViewModel, IShellVie
     private bool _isApplyingSelection;
     private readonly IShellMenuProviderResolver _providerResolver;
     private readonly IMicrosoftStoreService _storeService;
+    private readonly ISideloadUpdateService? _sideloadUpdateService;
     private readonly IMailDialogService _dialogService;
     private readonly IWinoLogger _logger;
     private readonly IPlatformCapabilities _platformCapabilities;
@@ -45,13 +46,15 @@ public sealed partial class WinoAppShellViewModel : CoreBaseViewModel, IShellVie
                                  IMicrosoftStoreService storeService,
                                  IMailDialogService dialogService,
                                  IWinoLogger logger,
-                                 IPlatformCapabilities platformCapabilities)
+                                 IPlatformCapabilities platformCapabilities,
+                                 ISideloadUpdateService? sideloadUpdateService = null)
     {
         _providerResolver = providerResolver;
         PreferencesService = preferencesService;
         StatePersistenceService = statePersistenceService;
         NavigationService = navigationService;
         _storeService = storeService;
+        _sideloadUpdateService = sideloadUpdateService;
         _dialogService = dialogService;
         _logger = logger;
         _platformCapabilities = platformCapabilities;
@@ -277,6 +280,11 @@ public sealed partial class WinoAppShellViewModel : CoreBaseViewModel, IShellVie
 
         try
         {
+            // Self-signed sideload builds are invisible to the Store, so they check the fork's
+            // own GitHub releases feed instead. Same cert = in-place upgrade.
+            if (await ShowSideloadUpdateDialogIfNeededAsync())
+                return;
+
             var hasAvailableUpdate = await _storeService.RefreshAvailabilityAsync();
 
             if (_isShutdown || !hasAvailableUpdate || !PreferencesService.IsStoreUpdateNotificationsEnabled)
@@ -310,5 +318,42 @@ public sealed partial class WinoAppShellViewModel : CoreBaseViewModel, IShellVie
         {
             _isCheckingStoreUpdate = false;
         }
+    }
+
+    /// <summary>
+    /// Sideload builds update from the fork's own release channel. Returns true when a sideload
+    /// prompt was handled, so the Store check is skipped for this session.
+    /// </summary>
+    private async Task<bool> ShowSideloadUpdateDialogIfNeededAsync()
+    {
+        if (_sideloadUpdateService is null)
+            return false;
+
+        var update = await _sideloadUpdateService.CheckForUpdateAsync();
+
+        if (update == null || _isShutdown || !PreferencesService.IsStoreUpdateNotificationsEnabled)
+            return false;
+
+        await ExecuteUIThreadAsync(async () =>
+        {
+            if (_isShutdown || !PreferencesService.IsStoreUpdateNotificationsEnabled)
+                return;
+
+            _hasShownStoreUpdatePrompt = true;
+            var shouldUpdate = await _dialogService.ShowWinoCustomMessageDialogAsync(
+                Translator.Notifications_SideloadUpdateAvailableTitle,
+                string.Format(Translator.Notifications_SideloadUpdateAvailableMessage, update.Version),
+                Translator.Buttons_Update,
+                WinoCustomMessageDialogIcon.Information,
+                Translator.Buttons_NotNow,
+                Constants.SideloadUpdateNotificationSuppressionKey);
+
+            if (shouldUpdate && !_isShutdown)
+            {
+                await _sideloadUpdateService.DownloadAndLaunchUpdateAsync(update);
+            }
+        });
+
+        return true;
     }
 }
