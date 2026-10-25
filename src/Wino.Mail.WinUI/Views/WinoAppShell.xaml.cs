@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 
 using System;
 using System.Collections.Generic;
@@ -231,6 +231,7 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
     /// </summary>
     public IShellMenuProvider? CurrentShellMenuProvider => ViewModel.CurrentProvider;
 
+    [DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
     [DynamicWindowsRuntimeCast(typeof(NavigationViewItem))]
     private async void NavigationViewItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs args)
     {
